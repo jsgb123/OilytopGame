@@ -286,38 +286,6 @@ public class StartingVillageMap extends MapData {
         }
     }
 
-    /**
-     * 道路两旁的花丛
-     */
-    private void createFlowerAlongPath() {
-        int centerX = getWidth() / 2;
-        int centerY = getHeight() / 2;
-
-        // 横向道路两旁
-        for (int x = 1; x < getWidth() - 1; x++) {
-            // 道路上方
-            if (getTiles()[x][centerY - 1] == TileType.GRASS && x % 3 == 0) {
-                getTiles()[x][centerY - 1] = TileType.FLOWER;
-            }
-            // 道路下方
-            if (getTiles()[x][centerY + 1] == TileType.GRASS && x % 3 == 1) {
-                getTiles()[x][centerY + 1] = TileType.FLOWER;
-            }
-        }
-
-        // 纵向道路两旁
-        for (int y = 1; y < getHeight() - 1; y++) {
-            // 道路左侧
-            if (getTiles()[centerX - 1][y] == TileType.GRASS && y % 3 == 2) {
-                getTiles()[centerX - 1][y] = TileType.FLOWER;
-            }
-            // 道路右侧
-            if (getTiles()[centerX + 1][y] == TileType.GRASS && y % 3 == 0) {
-                getTiles()[centerX + 1][y] = TileType.FLOWER;
-            }
-        }
-    }
-
     private void initNPCs() {
         // 村长
         NPC elder = new NPC(1, "村长", getWidth() / 2 - 3, getHeight() / 2 - 3,
