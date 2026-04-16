@@ -25,7 +25,7 @@ public class Main {
             Database.getInstance().init();
             logger.info("数据库初始化完成");
 
-            gameServer = new GameServer(8080);
+            gameServer = new GameServer(8989);
             // 启动服务器线程
             Thread serverThread = new Thread(() -> {
                 try {
@@ -39,7 +39,7 @@ public class Main {
 
             // 保持服务器运行
             serverThread.start();
-            logger.info("服务器已在端口 8080 启动");
+            logger.info("服务器已在端口 8989 启动");
             logger.info("按 Ctrl+C 停止服务器");
 
         } catch (Exception e) {

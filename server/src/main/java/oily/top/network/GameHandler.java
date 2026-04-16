@@ -51,8 +51,9 @@ public class GameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private void handleMessage(ChannelHandlerContext ctx, String message) {
         try {
             Protocol.Message msg = Protocol.deserialize(message);
-// 获取会话ID
+            // 获取会话ID
             String sessionId = ctx.channel().id().asShortText();
+            logger.info("收到消息类型: {}", msg.type);
             switch (msg.type) {
                 case Protocol.MSG_LOGIN_EVENT:
                     handleLoginRequest(ctx, (Map<String, Object>) msg.data);
@@ -71,14 +72,17 @@ public class GameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
                 case Protocol.MSG_HEARTBEAT:
                     handleHeartbeatMessage(ctx, (Map<String, Object>) msg.data);
                     break;
-                case Protocol.MSG_MAP_DATA_REQUEST://加载地图
+                case Protocol.MSG_MAP_DATA_REQUEST:// 加载地图
                     handleMapDataRequest(ctx, (Map<String, Object>) msg.data);
                     break;
-                case Protocol.MSG_PATH_REQUEST://寻路
+                case Protocol.MSG_PATH_REQUEST:// 寻路
                     handlePathRequest(ctx, (Map<String, Object>) msg.data, sessionId);
                     break;
-                case Protocol.MSG_TALK_TO_NPC: //客户端与NCP对话请求
+                case Protocol.MSG_TALK_TO_NPC: // 客户端与NCP对话请求
                     handleTalkToNPC(ctx, (Map<String, Object>) msg.data);
+                    break;
+                case Protocol.MSG_ACCEPT_QUEST: // 客户端接受任务请求
+                    handleAcceptQuest(ctx, (Map<String, Object>) msg.data);
                     break;
                 default:
                     logger.warn("未知消息类型: {}", msg.type);
@@ -413,14 +417,13 @@ public class GameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             logger.error("发送任务完成响应失败", e);
         }
     }
-    
-   // 接受任务请求
+
+    // 接受任务请求
     private void handleAcceptQuest(ChannelHandlerContext ctx, Map<String, Object> data) {
         int playerId = (int) data.get("playerId");
         String questId = (String) data.get("questId");
         int npcId = (int) data.get("npcId");
 
-        // ✅ 现在可以正常获取了
         QuestTemplate template = QuestManager.getInstance().getQuestTemplate(questId);
 
         if (template == null) {
@@ -758,15 +761,22 @@ public class GameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
     private void sendLoginResponse(ChannelHandlerContext ctx, boolean b, String note, Player player) {
         try {
             Map<String, Object> responseData = new HashMap<>();
-            responseData.put("success", true);
-            responseData.put("playerId", player.getId());
-            responseData.put("playerName", player.getName());
-            responseData.put("level", player.getLevel());
-            responseData.put("exp", player.getExperience());
-            responseData.put("mapId", player.getMapId());
-            responseData.put("x", player.getX());
-            responseData.put("y", player.getY());
-            responseData.put("direction", player.getDirection());
+            if (b) {
+
+                responseData.put("success", true);
+                responseData.put("playerId", player.getId());
+                responseData.put("playerName", player.getName());
+                responseData.put("level", player.getLevel());
+                responseData.put("exp", player.getExperience());
+                responseData.put("mapId", player.getMapId());
+                responseData.put("x", player.getX());
+                responseData.put("y", player.getY());
+                responseData.put("direction", player.getDirection());
+
+            } else {
+                responseData.put("success", false);
+                responseData.put("message", note);
+            }
             Protocol.Message response = new Protocol.Message(Protocol.MSG_LOGIN_EVENT, responseData);
             String json = Protocol.serialize(response);
             ctx.writeAndFlush(new TextWebSocketFrame(json));
@@ -774,7 +784,7 @@ public class GameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
             logger.error("处理返回玩家登录请求失败", e);
         }
     }
-//数据库验证
+    // 数据库验证
 
     private boolean validatePassword(String playerName, String password) {
         return true;
