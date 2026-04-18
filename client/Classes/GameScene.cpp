@@ -40,7 +40,6 @@ void GameScene::initWithPlayerData(LoginResponse* playerData)
 	_playerY = playerData->y* GameConfig::TILE_SIZE;
 	_playerDirection = playerData->direction;
 	delete playerData;
-
 	// 更新已存在的玩家对象
 	if (_localPlayer)
 	{
@@ -142,51 +141,17 @@ bool GameScene::init()
 		//_mapManager->loadDefaultMap();
 	}
 
-	// 键盘监听
+	//TODO: 键盘监听
 	auto keyboardListener = EventListenerKeyboard::create();
-	keyboardListener->onKeyPressed = [this](EventKeyboard::KeyCode keyCode, Event* event) {
-		// 记录按键状态
-		_keyStates[keyCode] = true;
-
-		// ESC 退出
-		if (keyCode == EventKeyboard::KeyCode::KEY_ESCAPE)
-		{
-			if (_currentDialogBg)
-			{
-				_currentDialogBg->removeFromParent();
-				_currentDialogBg = nullptr;
-				return;  // 只关闭对话框
-			}
-			// 退出游戏
-			//_network->disconnect();
-			//Director::getInstance()->replaceScene(LoginScene::createScene());
-		}
-		if (keyCode == EventKeyboard::KeyCode::KEY_E)//与NPC对话
-		{
-			interactWithNearbyNPC();
-		}
-		if (keyCode == EventKeyboard::KeyCode::KEY_Q)//任务面板
-		{
-			if (_questPanel && _questPanel->isVisible())
-			{
-				hideQuestPanel();
-			}
-			else
-			{
-				showQuestPanel();
-			}
-		}
-	};
-	keyboardListener->onKeyReleased = [this](EventKeyboard::KeyCode keyCode, Event* event) {
-		_keyStates[keyCode] = false;
-	};
+	keyboardListener->onKeyPressed = CC_CALLBACK_2(GameScene::onKeyPressed, this);
+	keyboardListener->onKeyReleased = CC_CALLBACK_2(GameScene::onKeyReleased, this);
 	_eventDispatcher->addEventListenerWithSceneGraphPriority(keyboardListener, this);
 
-	// 触摸监听
+	//TODO: 鼠标点击监听
 	auto touchListener = EventListenerTouchOneByOne::create();
 	touchListener->onTouchBegan = CC_CALLBACK_2(GameScene::onTouchBegan, this);
 	_eventDispatcher->addEventListenerWithSceneGraphPriority(touchListener, this);
-
+	//TODO: 恢复游戏窗口
 	auto resumeListener = EventListenerCustom::create(EVENT_COME_TO_FOREGROUND, [this](EventCustom* event) {
 		_needResetCamera = true;
 	});
@@ -338,7 +303,9 @@ void GameScene::showQuestDialog(NPCData* npc, const rapidjson::Value& quests)
 		questBtn->setPosition(Vec2(_w / 2, startY - btnCount * 65));
 		questBtn->setCameraMask(uiMask);
 		questBtn->addClickEventListener([this, questId, npc](Ref* sender) {
-			_network->sendAcceptQuestRequest(questId, npc->id);
+			//TODO: 接收任务正在开发
+			showMessage(u8"在这开发中...");
+			//_network->sendAcceptQuestRequest(questId, npc->id);
 			if (_currentDialogBg)
 			{
 				_currentDialogBg->removeFromParent();
@@ -371,7 +338,7 @@ void GameScene::showQuestDialog(NPCData* npc, const rapidjson::Value& quests)
 
 	// 关闭按钮（底部居中）
 	auto closeBtn = ui::Button::create();
-	closeBtn->setTitleText(u8"关闭");
+	closeBtn->setTitleText(u8"==== 关闭 ====");
 	closeBtn->setTitleFontSize(16);
 	closeBtn->setContentSize(Size(70, 30));
 	closeBtn->setAnchorPoint(Vec2::ANCHOR_MIDDLE_BOTTOM);
@@ -687,7 +654,7 @@ void GameScene::updateQuestPanel()
 	// 如果没有任务，显示提示
 	if (taskCount == 0)
 	{
-		auto emptyLabel = Label::createWithSystemFont("暂无进行中的任务", GameConfig::FONT_KAITI, 16);
+		auto emptyLabel = Label::createWithSystemFont(u8"暂无进行中的任务", GameConfig::FONT_KAITI, 16);
 		emptyLabel->setAnchorPoint(Vec2::ANCHOR_MIDDLE);
 		emptyLabel->setPosition(Vec2(150, 200));
 		emptyLabel->setColor(Color3B::GRAY);
@@ -719,7 +686,7 @@ void GameScene::showQuestPanel()
 	this->addChild(_questPanel, 250);
 
 	// 标题
-	auto titleLabel = Label::createWithSystemFont("任务追踪", GameConfig::FONT_MSYAH, 20);
+	auto titleLabel = Label::createWithSystemFont(u8"任务追踪", GameConfig::FONT_MSYAH, 20);
 	titleLabel->setAnchorPoint(Vec2::ANCHOR_TOP_LEFT);
 	titleLabel->setPosition(Vec2(15, visibleSize.height - 35));
 	titleLabel->setColor(Color3B::YELLOW);
@@ -856,6 +823,111 @@ void GameScene::setupUIFixed()
 		Director::getInstance()->replaceScene(LoginScene::createScene());
 	});
 	this->addChild(_disconnectBtn);
+	// 帮助按钮（屏幕右下角）
+	_helpButton = ui::Button::create();
+	_helpButton->setTitleText(u8"帮助");
+	_helpButton->setTitleFontSize(20);
+	_helpButton->setContentSize(Size(80, 40));
+	_helpButton->setAnchorPoint(Vec2::ANCHOR_BOTTOM_RIGHT);
+	_helpButton->setPosition(Vec2(visibleSize.width - 10, 10));
+	_helpButton->addClickEventListener([this](Ref* sender) {
+		showHelpPanel();
+	});
+	_helpButton->setCameraMask(uiMask);
+	this->addChild(_helpButton, 200);
+
+	// 帮助面板（初始隐藏）
+	createHelpPanel();
+}
+void GameScene::createHelpPanel()
+{
+	auto visibleSize = Director::getInstance()->getVisibleSize();
+	unsigned short uiMask = (unsigned short)CameraFlag::USER2;
+
+	// 帮助面板背景
+	_helpPanel = ui::Layout::create();
+	_helpPanel->setContentSize(Size(500, 350));
+	_helpPanel->setAnchorPoint(Vec2::ANCHOR_MIDDLE);
+	_helpPanel->setPosition(Vec2(visibleSize.width / 2, visibleSize.height / 2));
+	_helpPanel->setBackGroundColorType(ui::Layout::BackGroundColorType::SOLID);
+	_helpPanel->setBackGroundColor(Color3B(0, 0, 0));
+	_helpPanel->setBackGroundColorOpacity(220);
+	_helpPanel->setCameraMask(uiMask);
+	_helpPanel->setVisible(false);
+	this->addChild(_helpPanel, 300);
+
+	// 标题
+	auto titleLabel = Label::createWithSystemFont(u8"游戏帮助", GameConfig::FONT_MSYAH, 25);
+	titleLabel->setAnchorPoint(Vec2::ANCHOR_MIDDLE_TOP);
+	titleLabel->setPosition(Vec2(250, 330));
+	titleLabel->setColor(Color3B::YELLOW);
+	titleLabel->setCameraMask(uiMask);
+	_helpPanel->addChild(titleLabel);
+
+	// 分隔线
+	auto line = ui::Layout::create();
+	line->setContentSize(Size(460, 2));
+	line->setAnchorPoint(Vec2::ANCHOR_MIDDLE_TOP);
+	line->setPosition(Vec2(250, 300));
+	line->setBackGroundColorType(ui::Layout::BackGroundColorType::SOLID);
+	line->setBackGroundColor(Color3B(100, 100, 100));
+	line->setCameraMask(uiMask);
+	_helpPanel->addChild(line);
+
+	// 帮助内容
+	std::vector<std::string> helpTexts = {
+		u8"● 按 E 键：与附近NPC对话",
+		u8"● 按 Q 键：打开/关闭任务面板",
+		u8"● 方向键 / WASD：移动角色",
+		u8"● 鼠标左键：点击地面自动寻路",
+		u8"● ESC：关闭对话框 ",
+		u8"● 传送门：传送到其他地图",
+		u8"● 与NPC对话可接取任务"
+	};
+
+	float startY = 270;
+	for (int i = 0; i < (int)helpTexts.size(); i++)
+	{
+		auto helpLabel = Label::createWithSystemFont(helpTexts[i], GameConfig::FONT_KAITI, 16);
+		helpLabel->setAnchorPoint(Vec2::ANCHOR_TOP_LEFT);
+		helpLabel->setPosition(Vec2(40, startY - i * 35));
+		helpLabel->setColor(Color3B::WHITE);
+		helpLabel->setCameraMask(uiMask);
+		_helpPanel->addChild(helpLabel);
+	}
+
+	// 关闭按钮
+	auto closeBtn = ui::Button::create();
+	closeBtn->setTitleText(u8"关闭");
+	closeBtn->setTitleFontSize(18);
+	closeBtn->setContentSize(Size(80, 35));
+	closeBtn->setAnchorPoint(Vec2::ANCHOR_MIDDLE_BOTTOM);
+	closeBtn->setPosition(Vec2(250, 20));
+	closeBtn->addClickEventListener([this](Ref* sender) {
+		hideHelpPanel();
+	});
+	closeBtn->setCameraMask(uiMask);
+	_helpPanel->addChild(closeBtn);
+}
+
+void GameScene::showHelpPanel()
+{
+	if (_helpPanel)
+	{
+		_helpPanel->setVisible(true);
+
+		// 添加弹出动画
+		_helpPanel->setScale(0.8f);
+		_helpPanel->runAction(ScaleTo::create(0.1f, 1.0f));
+	}
+}
+
+void GameScene::hideHelpPanel()
+{
+	if (_helpPanel)
+	{
+		_helpPanel->setVisible(false);
+	}
 }
 void GameScene::updateCoordDisplay()
 {
@@ -909,12 +981,39 @@ void GameScene::onKeyPressed(EventKeyboard::KeyCode keyCode, Event* event)
 {
 	_keyStates[keyCode] = true;
 
-	//TODO: ESC 退出
-	//if (keyCode == EventKeyboard::KeyCode::KEY_ESCAPE)
-	//{
-	//	_network->disconnect();
-	//	Director::getInstance()->replaceScene(LoginScene::createScene());
-	//}
+	switch (keyCode)
+	{
+	case EventKeyboard::KeyCode::KEY_ESCAPE:
+		if (_helpPanel && _helpPanel->isVisible())
+		{
+			hideHelpPanel();
+			return;
+		}
+		if (_currentDialogBg)
+		{
+			_currentDialogBg->removeFromParent();
+			_currentDialogBg = nullptr;
+		}
+		break;
+
+	case EventKeyboard::KeyCode::KEY_E:
+		interactWithNearbyNPC();
+		break;
+
+	case EventKeyboard::KeyCode::KEY_Q:
+		if (_questPanel && _questPanel->isVisible())
+		{
+			hideQuestPanel();
+		}
+		else
+		{
+			showQuestPanel();
+		}
+		break;
+
+	default:
+		break;
+	}
 }
 void GameScene::onKeyReleased(EventKeyboard::KeyCode keyCode, Event* event)
 {
@@ -965,11 +1064,10 @@ void GameScene::setupCallbacks()
 		onPathResponse(resp);
 	});
 
-	_network->setOnAcceptQuestResponse([this](bool success, const std::string& questId) {
+	_network->setOnAcceptQuestResponse([this](bool success, const Quest& quest) {
 		if (success)
 		{
-			showMessage(u8"接受任务成功", Color3B::GREEN);
-			// 更新任务列表
+			QuestManager::getInstance()->acceptQuest(quest);
 			updateQuestPanel();
 		}
 		else
@@ -992,7 +1090,7 @@ void GameScene::setupCallbacks()
 		// 显示普通对话（不需要任务按钮）
 		showSimpleDialog(npcName, dialog);
 	});
-	// 可接取任务回调
+	// 可接取任务回调: 与NCP对话，获得可接的任务。
 	_network->setOnAvailableQuests([this](const rapidjson::Value& quests) {
 		CCLOG(u8"收到可接取任务，数量: %d", quests.Size());
 
@@ -1172,7 +1270,7 @@ void GameScene::update(float delta)
 		checkPortalTrigger();
 	}
 }
-
+//键盘按键移动
 void GameScene::handleKeyboardInput(float delta)
 {
 	Vec2 input = Vec2::ZERO;
@@ -1306,11 +1404,6 @@ bool GameScene::onTouchBegan(Touch* touch, Event* event)
 	{
 		requestPathTo(Vec2(gridX, gridY));
 	}
-	else
-	{
-		CCLOG(u8"点击超出地图边界: (%d,%d)", gridX, gridY);
-	}
-
 	return true;
 }
 void GameScene::startPathMovement(const std::vector<Vec2>& pixelPath)
@@ -1322,7 +1415,6 @@ void GameScene::startPathMovement(const std::vector<Vec2>& pixelPath)
 	_isPathMoving = true;
 	_targetGridPosition = _currentPath.back();
 
-	CCLOG(u8"开始移动，共 %d 个路径点", (int)pixelPath.size());
 }
 
 void GameScene::updatePathMovement(float delta)
@@ -1357,10 +1449,10 @@ void GameScene::updatePathMovement(float delta)
 		}
 		else
 		{
-			// 到达终点
+			// 到达终点，停止移动
 			_isPathMoving = false;
 			if (_mapManager) _mapManager->clearPath();
-			CCLOG(u8"到达目标位置");
+
 			return;
 		}
 	}

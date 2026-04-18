@@ -107,7 +107,6 @@ void AppDelegate::applicationWillEnterForeground() {
 	auto scene = Director::getInstance()->getRunningScene();
 	if (scene)
 	{
-		// 发送自定义事件
 		Director::getInstance()->getEventDispatcher()->dispatchCustomEvent(EVENT_COME_TO_FOREGROUND);
 	}
 }

@@ -14,12 +14,16 @@ public:
 
 private:
 	// UI 组件
-	cocos2d::ui::TextField* _serverAddressInput;
-	cocos2d::ui::TextField* _playerNameInput;
-	cocos2d::ui::TextField* _passwordInput;
+	cocos2d::ui::EditBox* _playerNameInput;
+	cocos2d::ui::EditBox* _passwordInput;
 	cocos2d::ui::Button* _connectButton;
 	cocos2d::Label* _statusLabel;
+	// UI 组件
+	cocos2d::ui::CheckBox* _localServerCheckBox;
+	cocos2d::ui::CheckBox* _remoteServerCheckBox;
 
+	// 获取当前选择的服务器地址
+	std::string getSelectedServerAddress();
 	// 网络
 	WebSocketClient* _network;
 
@@ -38,7 +42,7 @@ private:
 	void onConnected();
 	void onLoginSuccess(LoginResponse* resp);
 	void onLoginFailed(const std::string& reason);
-	void onDisconnected(const std::string& reason);
+	void onDisconnected();
 	void onError(const std::string& error);
 
 	// 场景切换

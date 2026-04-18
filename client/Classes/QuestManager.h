@@ -9,9 +9,11 @@ class QuestManager
 {
 public:
 	static QuestManager* getInstance();
-
+	// 接取新任务（强制设为进行中）
+	void acceptQuest(const Quest& quest);
+	// 同步任务（保持原状态，用于从服务器加载）
+	void syncQuest(const Quest& quest);
 	// 任务管理
-	void addQuest(const Quest& quest);
 	void updateQuestProgress(const std::string& questId, int amount);
 	void completeQuest(const std::string& questId);
 	void claimReward(const std::string& questId);

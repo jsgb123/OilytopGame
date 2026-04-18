@@ -7,7 +7,7 @@
 #include <functional>
 #include <queue>
 #include <mutex>
-
+#include "Quest.h"
 class WebSocketClient : public cocos2d::network::WebSocket::Delegate
 {
 public:
@@ -35,7 +35,7 @@ public:
 
 	// 设置回调函数，提供给外部类设置要回调的函数。
 	void setOnConnected(std::function<void()> callback) { _onConnected = callback; }
-	void setOnDisconnected(std::function<void(const std::string&)> callback) { _onDisconnected = callback; }
+	void setOnDisconnected(std::function<void()> callback) { _onDisconnected = callback; }
 	void setOnError(std::function<void(const std::string&)> callback) { _onError = callback; }
 
 	void setOnLoginResponse(std::function<void(LoginResponse*)> callback) { _onLoginResponse = callback; }
@@ -46,7 +46,7 @@ public:
 	// 任务相关回调
 	void setOnAvailableQuests(std::function<void(const rapidjson::Value&)> callback) { _onAvailableQuests = callback; }
 	void setOnQuestComplete(std::function<void(const rapidjson::Value&)> callback) { _onQuestComplete = callback; }
-	void setOnAcceptQuestResponse(std::function<void(bool success, const std::string& questId)> callback) { _onAcceptQuestResponse = callback; }
+	void setOnAcceptQuestResponse(std::function<void(bool success, const Quest& quest)> callback) { _onAcceptQuestResponse = callback; }
 	void setOnNPCDialog(std::function<void(int npcId, const std::string& npcName, const std::string& dialog)> callback) { _onNPCDialog = callback; }
 protected:
 	// WebSocket 回调
@@ -71,7 +71,7 @@ private:
 	void sendQueuedMessages();
 	// 回调函数
 	std::function<void()> _onConnected;
-	std::function<void(const std::string&)> _onDisconnected;
+	std::function<void()> _onDisconnected;
 	std::function<void(const std::string&)> _onError;
 	std::function<void(LoginResponse*)> _onLoginResponse;
 	//std::function<void(WorldState*)> _onWorldState;
@@ -79,7 +79,7 @@ private:
 	std::function<void(PathResponse*)> _onPathResponse;
 	std::function<void(const rapidjson::Value&)> _onAvailableQuests;
 	std::function<void(const rapidjson::Value&)> _onQuestComplete;
-	std::function<void(bool success, const std::string& questId)> _onAcceptQuestResponse;
+	std::function<void(bool success, const Quest& quest)> _onAcceptQuestResponse;
 	std::function<void(int npcId, const std::string& npcName, const std::string& dialog)> _onNPCDialog;
 
 	void handleNPCDialog(const rapidjson::Value& data);

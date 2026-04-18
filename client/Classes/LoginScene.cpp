@@ -33,16 +33,15 @@ bool LoginScene::init()
     _network->setOnLoginResponse([this](LoginResponse* resp) { 
         if (resp->success)
             onLoginSuccess(resp);
-        else
+		else {
             onLoginFailed(resp->message);
+			delete resp;
+		}
+
+
     });
-    _network->setOnDisconnected([this](const std::string& reason) { onDisconnected(reason); });
+    _network->setOnDisconnected([this]() { onDisconnected(); });
     _network->setOnError([this](const std::string& error) { onError(error); });
-    
-    // 设置默认值
-    _serverAddressInput->setString("localhost:8080");
-    _playerNameInput->setString(StringUtils::format(u8"玩家%d", rand() % 9000 + 1000));
-    _passwordInput->setString("123456");
     
     updateUI();
     
@@ -98,18 +97,62 @@ void LoginScene::setupUI()
 	this->addChild(_statusLabel);
 
     // 服务器地址标签
-    auto serverLabel = Label::createWithSystemFont(u8"服务器地址:", GameConfig::FONT_SIMHEI, 18);
-    serverLabel->setPosition(Vec2(visibleSize.width / 2 - 135, visibleSize.height / 2 - 70));
-    serverLabel->setColor(Color3B::WHITE);
-    this->addChild(serverLabel);
+	auto serverSelectLabel = Label::createWithSystemFont(u8"服务器选择:", GameConfig::FONT_SIMHEI, 18);
+	serverSelectLabel->setPosition(Vec2(visibleSize.width / 2 - 140, visibleSize.height / 2 - 70));
+	serverSelectLabel->setColor(Color3B::WHITE);
+	this->addChild(serverSelectLabel);
     
-    // 服务器地址输入框
-    _serverAddressInput = TextField::create("localhost:8080", GameConfig::FONT_ARIAL, 18);
-    _serverAddressInput->setPosition(Vec2(visibleSize.width / 2 + 20, visibleSize.height / 2 - 70));
-    _serverAddressInput->setContentSize(Size(200, 30));
-    _serverAddressInput->setMaxLength(50);
-    _serverAddressInput->setPlaceHolderColor(Color3B::GRAY);
-    this->addChild(_serverAddressInput);
+	// 本地服务器单选框
+	_localServerCheckBox = CheckBox::create("checkbox_normal.png", "checkbox_active.png", "checkbox_active.png", "checkbox_normal.png", "");
+	_localServerCheckBox->setPosition(Vec2(visibleSize.width / 2 - 70, visibleSize.height / 2 - 70));
+	_localServerCheckBox->setZoomScale(0.05f);
+	_localServerCheckBox->addEventListener([this](Ref* sender, CheckBox::EventType type) {
+		if (type == CheckBox::EventType::SELECTED) {
+			// 当选中本地时，强制取消远程
+			_remoteServerCheckBox->setSelected(false);
+			CCLOG(u8"选中了：本地服务器");
+		}
+		else if (type == CheckBox::EventType::UNSELECTED) {
+			if (!_remoteServerCheckBox->isSelected()) {
+				_localServerCheckBox->setSelected(true);
+			}
+		}
+	});
+	this->addChild(_localServerCheckBox);
+
+	auto localLabel = Label::createWithSystemFont(u8"本地服务器", GameConfig::FONT_MSYAH, 16);
+	localLabel->setPosition(Vec2(visibleSize.width / 2 - 15, visibleSize.height / 2 - 70));
+	localLabel->setColor(Color3B::WHITE);
+	this->addChild(localLabel);
+
+	// 远程服务器单选框
+	_remoteServerCheckBox = CheckBox::create("checkbox_normal.png", "checkbox_active.png", "checkbox_active.png", "checkbox_normal.png", "");
+	_remoteServerCheckBox->setPosition(Vec2(visibleSize.width / 2 + 60, visibleSize.height / 2 - 70));
+	_remoteServerCheckBox->setZoomScale(0.05f);
+	_remoteServerCheckBox->addEventListener([this](Ref* sender, CheckBox::EventType type) {
+		if (type == CheckBox::EventType::SELECTED) {
+			// 当选中远程时，强制取消本地
+			_localServerCheckBox->setSelected(false);
+			CCLOG(u8"选中了：远程服务器");
+		}
+		else if (type == CheckBox::EventType::UNSELECTED) {
+			// 如果远程被取消选中，且本地也未选中，则重新选中远程
+			if (!_localServerCheckBox->isSelected()) {
+				_remoteServerCheckBox->setSelected(true);
+			}
+		}
+	});
+	this->addChild(_remoteServerCheckBox);
+
+	auto remoteLabel = Label::createWithSystemFont(u8"远程服务器", GameConfig::FONT_MSYAH, 16);
+	remoteLabel->setPosition(Vec2(visibleSize.width / 2 + 115, visibleSize.height / 2 - 70));
+	remoteLabel->setColor(Color3B::WHITE);
+	this->addChild(remoteLabel);
+
+	// 默认选中
+	_localServerCheckBox->setSelected(false);
+	_remoteServerCheckBox->setSelected(true);
+
     
     // 玩家名称标签
     auto nameLabel = Label::createWithSystemFont(u8"玩家名称:", GameConfig::FONT_MSYAH, 18);
@@ -117,13 +160,17 @@ void LoginScene::setupUI()
     nameLabel->setColor(Color3B::WHITE);
     this->addChild(nameLabel);
     
-    // 玩家名称输入框
-    _playerNameInput = TextField::create(u8"玩家", GameConfig::FONT_SONG, 18);
-    _playerNameInput->setPosition(Vec2(visibleSize.width / 2 + 20, visibleSize.height / 2 - 110));
-    _playerNameInput->setContentSize(Size(200, 30));
-    _playerNameInput->setMaxLength(20);
-    _playerNameInput->setPlaceHolderColor(Color3B::GRAY);
-    this->addChild(_playerNameInput);
+	// 玩家名称输入框 - 使用 EditBox
+	auto nameBg = Scale9Sprite::create();
+	_playerNameInput = ui::EditBox::create(Size(200, 30), nameBg);
+	_playerNameInput->setPosition(Vec2(visibleSize.width / 2 + 20, visibleSize.height / 2 - 110));
+	_playerNameInput->setFontSize(18);
+	_playerNameInput->setFontColor(Color3B::WHITE);
+	_playerNameInput->setPlaceHolder(u8"输入玩家名称");
+	_playerNameInput->setPlaceholderFontColor(Color3B::GRAY);
+	_playerNameInput->setText(StringUtils::format(u8"玩家%d", rand() % 9000 + 1000).c_str());
+	_playerNameInput->setReturnType(ui::EditBox::KeyboardReturnType::DONE);
+	this->addChild(_playerNameInput);
     
     // 密码标签
     auto passwordLabel = Label::createWithSystemFont(u8"密码:", GameConfig::FONT_FANGSONG, 18);
@@ -131,17 +178,19 @@ void LoginScene::setupUI()
     passwordLabel->setColor(Color3B::WHITE);
     this->addChild(passwordLabel);
     
-    // 密码输入框
-    _passwordInput = TextField::create("123456", GameConfig::FONT_ARIAL, 18);
-    _passwordInput->setPosition(Vec2(visibleSize.width / 2 + 20, visibleSize.height / 2 - 150));
-    _passwordInput->setContentSize(Size(200, 30));
-    _passwordInput->setMaxLength(20);
-    _passwordInput->setPasswordEnabled(true);
-    _passwordInput->setPlaceHolderColor(Color3B::GRAY);
-    this->addChild(_passwordInput);
-	_serverAddressInput->setEnabled(true);
-	_playerNameInput->setEnabled(true);
-	_passwordInput->setEnabled(true);
+	// 密码输入框
+	auto passBg = Scale9Sprite::create(); // 同样使用空背景
+	_passwordInput = ui::EditBox::create(Size(200, 30), passBg);
+	_passwordInput->setPosition(Vec2(visibleSize.width / 2 + 20, visibleSize.height / 2 - 150));
+	_passwordInput->setFontSize(18);
+	_passwordInput->setFontColor(Color3B::WHITE);
+	_passwordInput->setPlaceHolder(u8"输入密码");
+	_passwordInput->setPlaceholderFontColor(Color3B::GRAY);
+	_passwordInput->setText("123456");
+	_passwordInput->setInputFlag(ui::EditBox::InputFlag::PASSWORD);
+	_passwordInput->setReturnType(ui::EditBox::KeyboardReturnType::DONE);
+	this->addChild(_passwordInput);
+
     // 连接按钮
     _connectButton = Button::create();
     _connectButton->setTitleText(u8"连接服务器");
@@ -157,45 +206,36 @@ void LoginScene::setupUI()
     versionLabel->setColor(Color3B(80, 180, 180));
     this->addChild(versionLabel);
 }
-
-void LoginScene::updateUI()
+std::string LoginScene::getSelectedServerAddress()
 {
-    bool isConnected = _network && _network->isConnected();
-    
-    _serverAddressInput->setEnabled(!isConnected && !_isConnecting);
-    _playerNameInput->setEnabled(!isConnected && !_isConnecting);
-    _passwordInput->setEnabled(!isConnected && !_isConnecting);
-    _connectButton->setEnabled(!isConnected && !_isConnecting);
-    
-    if (isConnected)
-    {
-        _connectButton->setTitleText(u8"已连接");
-        _statusLabel->setString(u8"已连接到服务器");
-        _statusLabel->setColor(Color3B::GREEN);
-    }
-    else if (_isConnecting)
-    {
-        _connectButton->setTitleText(u8"连接中...");
-		_statusLabel->setString(StringUtils::format(u8"正在连接 #%d ...", _loginAttempts));
-        _statusLabel->setColor(Color3B::YELLOW);
-    }
-    else
-    {
-        _connectButton->setTitleText(u8"连接服务器");
-		_statusLabel->setString(u8"等待连接");
-        _statusLabel->setColor(Color3B::GRAY);
-    }
+	if (_localServerCheckBox && _localServerCheckBox->isSelected())
+	{
+		return "localhost:8989";
+	}
+	else
+	{
+		return "8.138.132.220:8989";
+	}
+}
+void LoginScene::updateUI()
+{    
+    _playerNameInput->setEnabled( !_isConnecting);
+    _passwordInput->setEnabled(!_isConnecting);
+    _connectButton->setEnabled( !_isConnecting);
+
+	_localServerCheckBox->setEnabled( !_isConnecting);
+	_remoteServerCheckBox->setEnabled( !_isConnecting);
 }
 
 void LoginScene::onConnectButtonPressed(cocos2d::Ref* sender)
 {
 	CCLOG("==onConnectButtonPressed enter==");
-    if (_isConnecting || (_network && _network->isConnected()))
+    if (_isConnecting)
         return;
     
-    std::string serverAddress = _serverAddressInput->getString();
-    std::string playerName = _playerNameInput->getString();
-    std::string password = _passwordInput->getString();
+	std::string serverAddress = getSelectedServerAddress();
+	std::string playerName = _playerNameInput->getText();
+	std::string password = _passwordInput->getText();
     
     // 验证输入
     if (serverAddress.empty())
@@ -223,7 +263,9 @@ void LoginScene::onConnectButtonPressed(cocos2d::Ref* sender)
     _loginAttempts++;
 	updateUI();
 	_connectButton->setEnabled(false);
-	// ? 延迟执行连接，让 UI 有时间渲染
+	_statusLabel->setString(StringUtils::format(u8"正在连接 #%d ...", _loginAttempts));
+	_statusLabel->setColor(Color3B::YELLOW);
+	// 延迟执行连接，让 UI 有时间渲染
 	this->scheduleOnce([this, serverAddress, playerName, password](float dt) {
 		_network->connect("ws://" + serverAddress + "/ws");
 	}, 0.05f, "connect_delay");
@@ -237,9 +279,11 @@ void LoginScene::onConnected()
 	updateUI();
     // 发送登录请求
     _network->sendLoginRequest(
-        _playerNameInput->getString(),
-        _passwordInput->getString()
+        _playerNameInput->getText(),
+        _passwordInput->getText()
     );
+	_statusLabel->setString(u8"连接已建立，发送登录信息");
+	_statusLabel->setColor(Color3B::GREEN);
 }
 
 void LoginScene::onLoginSuccess(LoginResponse* resp)
@@ -269,7 +313,7 @@ void LoginScene::onLoginFailed(const std::string& reason)
     updateUI();
 }
 
-void LoginScene::onDisconnected(const std::string& reason)
+void LoginScene::onDisconnected()
 {
 	CCLOG("==LoginScene.onDisconnected callback==");
 	// 如果正在切换场景，忽略回调
@@ -283,6 +327,8 @@ void LoginScene::onDisconnected(const std::string& reason)
 	}
     _isConnecting = false;
     updateUI();
+	_statusLabel->setString(u8"连接已断开");
+	_statusLabel->setColor(Color3B::RED);
 }
 
 void LoginScene::onError(const std::string& error)
@@ -290,6 +336,8 @@ void LoginScene::onError(const std::string& error)
     CCLOG(u8"==LoginScene.onError callback==");
     _isConnecting = false;
     updateUI();
+	_statusLabel->setString(StringUtils::format(u8"连接错误: %s", error.c_str()));
+	_statusLabel->setColor(Color3B::RED);
 }
 
 void LoginScene::switchToGameScene()
@@ -311,6 +359,8 @@ void LoginScene::switchToGameScene()
 	// 清除 UI 引用
 	_connectButton = nullptr;
 	_statusLabel = nullptr;
+	_localServerCheckBox = nullptr;
+	_remoteServerCheckBox = nullptr;
 
 	// 然后切换场景
 	auto gameScene = GameScene::createWithPlayerData(_loginData);

@@ -107,8 +107,8 @@ void MapManager::loadDefaultMap()
 	// 道路（十字形）
 	int centerX = _width / 2;
 	int centerY = _height / 2;
-	for (int x = 1; x < _width-1; x++) _tileData[x][centerY] = 1;
-	for (int y = 1; y < _height-1; y++) _tileData[centerX][y] = 1;
+	for (int x = 1; x < _width - 1; x++) _tileData[x][centerY] = 1;
+	for (int y = 1; y < _height - 1; y++) _tileData[centerX][y] = 1;
 
 	// 建筑
 	for (int x = 10; x <= 15; x++)
@@ -167,8 +167,8 @@ void MapManager::loadDefaultMap()
 	// 河流（横向）
 	for (int x = 20; x <= 60; x++)
 	{
-		if(_tileData[x][35]==0)
-		_tileData[x][35] = 2;   // WATER
+		if (_tileData[x][35] == 0)
+			_tileData[x][35] = 2;   // WATER
 	}
 	// 池塘（圆形区域）
 	for (int x = 45; x <= 52; x++)
@@ -205,7 +205,7 @@ void MapManager::loadDefaultMap()
 							 // ========== 长椅 ==========
 	_tileData[36][27] = 10;  // BENCH
 	_tileData[42][27] = 10;  // BENCH
-	_tileData[centerX-1][centerY + 4] = 10;  // BENCH
+	_tileData[centerX - 1][centerY + 4] = 10;  // BENCH
 	updateTileDisplay();
 
 	CCLOG(u8"默认地图加载完成: %dx%d", _width, _height);
@@ -387,23 +387,72 @@ void MapManager::createPortalNodes()
 
 		// 绘制传送门图标
 		auto drawNode = DrawNode::create();
-
-		// 传送门底座（圆形）
-		drawNode->drawSolidCircle(Vec2::ZERO, tileSize / 2, 0, 16,
-			Color4F(0.5f, 0.3f, 0.8f, 0.8f));
-
-		// 传送门内圈
-		drawNode->drawCircle(Vec2::ZERO, tileSize / 4, 0, 16,
-			2.0f,  // 线宽
-			Color4F(0.8f, 0.6f, 1.0f, 1.0f));
+		// 外发光圆环（模拟辉光）
+		drawNode->drawSolidCircle(Vec2::ZERO,
+			tileSize / 2.5f,    // 半径稍大
+			0,
+			32,
+			Color4F(0.4f, 0.7f, 1.0f, 0.3f)); // 浅蓝色半透明
+ // 内圈核心
+		drawNode->drawSolidCircle(Vec2::ZERO,
+			tileSize / 5.0f,
+			0,
+			16,
+			Color4F(0.8f, 0.6f, 1.0f, 0.9f)); // 紫色核心
 
 		portalNode->addChild(drawNode);
+		//动态发光粒子 (Particle)
+		auto particle = ParticleSystemQuad::createWithTotalParticles(15);
+		particle->setDuration(-1); // 永不结束
+		particle->setEmitterMode(cocos2d::ParticleSystem::Mode::GRAVITY);
+		particle->setGravity(Vec2(0, 0));
+		// 粒子外观
+		Texture2D* tex = Director::getInstance()->getTextureCache()->addImage("cc_2x2_white.png");
+		particle->setTexture(tex);
+		particle->setStartColor(Color4F(0.8f, 0.8f, 1.0f, 1.0f)); // 发光色
+		particle->setEndColor(Color4F(0.4f, 0.4f, 1.0f, 0.0f));   // 消失时透明
 
+		// 大小
+		particle->setStartSize(4.0f);
+		particle->setStartSizeVar(2.0f);
+		particle->setEndSize(0.0f);
 
+		// 速度
+		particle->setSpeed(10.0f);
+		particle->setSpeedVar(5.0f);
+
+		// 发射角度
+		particle->setAngle(90.0f);
+		particle->setAngleVar(360.0f); // 360度随机
+
+		// 寿命
+		particle->setLife(1.0f);
+		particle->setLifeVar(0.5f);
+
+		// 发射率
+		particle->setEmissionRate(10); // 每秒10个
+
+		 // 位置类型
+		particle->setPositionType(ParticleSystem::PositionType::GROUPED);
+
+		// 偏移量：让粒子在圆环上生成
+		particle->setPosition(Vec2::ZERO);
+		portalNode->addChild(particle);
+
+		// 让光圈产生脉冲效果
+		auto scaleUp = ScaleTo::create(0.5f, 1.2f); // 放大到 1.2倍
+		auto scaleDown = ScaleTo::create(0.5f, 1.0f); // 缩小回 1.0倍
+		auto blink = Sequence::create(scaleUp, scaleDown, nullptr);
+		drawNode->runAction(RepeatForever::create(blink));
+
+		// 旋转粒子系统，看起来像在流动
+		auto rotate = RotateBy::create(2.0f, 360); // 2秒转一圈
+		particle->runAction(RepeatForever::create(rotate));
+
+		// 添加到场景
 		this->addChild(portalNode);
 
-		CCLOG(u8"创建传送门: %s at (%d,%d) -> 地图%d",
-			portal.name.c_str(), portal.x, portal.y, portal.targetMapId);
+		CCLOG(u8"创建动态传送门: %s at (%d,%d)", portal.name.c_str(), portal.x, portal.y);
 	}
 }
 void MapManager::onPortalTouched(const PortalInfo& portal)
@@ -525,11 +574,6 @@ std::vector<Vec2>* MapManager::findPath(const Vec2& start, const Vec2& target)
 			}
 			result->push_back(start);
 			std::reverse(result->begin(), result->end());
-
-			CCLOG(u8"路径找到: (%d,%d) -> (%d,%d), 共 %d 步, 代价 %d",
-				(int)start.x, (int)start.y,
-				(int)target.x, (int)target.y,
-				(int)result->size(), gScore[target]);
 			return result;
 		}
 

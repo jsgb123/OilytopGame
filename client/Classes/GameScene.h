@@ -24,9 +24,11 @@ public:
 
 	void showSimpleDialog(const std::string & npcName, const std::string & dialog);
 
-	void showMessage(const std::string & text, const Color3B & color);
+	void showMessage(const std::string& text, const cocos2d::Color3B& color = cocos2d::Color3B::YELLOW);
 
 	void setupUIFixed();
+
+	void createHelpPanel();
 
 	CREATE_FUNC(GameScene);
 
@@ -78,6 +80,12 @@ private:
 	cocos2d::ui::LoadingBar* _hpBar;
 	cocos2d::Label* _hpLabel;
 	void updatePlayerStats(int hp, int maxHp, int exp, int maxExp);
+	cocos2d::ui::Button* _helpButton;
+	cocos2d::ui::Layout* _helpPanel;
+
+	void showHelpPanel();
+	void hideHelpPanel();
+
 	// 任务面板相关
 	cocos2d::ui::Layout* _questPanel;
 	void updateQuestPanel();

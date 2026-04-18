@@ -109,6 +109,7 @@ void WebSocketClient::sendAcceptQuestRequest(const std::string& questId, int npc
 
 	sendJson(JsonHelper::toString(doc));
 }
+
 void WebSocketClient::sendCompleteQuestRequest(const std::string& questId)
 {
 	rapidjson::Document doc;
@@ -223,7 +224,7 @@ void WebSocketClient::onClose(cocos2d::network::WebSocket* ws)
 
 	_connected = false;
 
-	if (_onDisconnected) _onDisconnected("==Connection closed==");
+	if (_onDisconnected) _onDisconnected();
 }
 
 void WebSocketClient::onError(cocos2d::network::WebSocket* ws, const cocos2d::network::WebSocket::ErrorCode& error)
@@ -259,9 +260,9 @@ void WebSocketClient::processMessage(const std::string& json)
 		//case MessageType::WORLD_STATE:  // 6
 		//	//handleWorldState(data);
 		//	break;
-		//case MessageType::ACCEPT_QUEST:  
-		//	handleAcceptQuestResponse(data);
-		//	break;
+	case MessageType::ACCEPT_QUEST_RESPONSE:
+		handleAcceptQuestResponse(data);
+		break;
 	case MessageType::AVAILABLE_QUESTS:  // 可接收任务
 		handleAvailableQuests(data);
 		break;
@@ -301,22 +302,35 @@ void WebSocketClient::handleQuestComplete(const rapidjson::Value& data)
 
 void WebSocketClient::handleAcceptQuestResponse(const rapidjson::Value& data)
 {
-	bool success = false;
-	std::string questId;
+	bool success = data["success"].GetBool();
 
-	if (data.HasMember("success") && data["success"].IsBool())
+	if (success && _onAcceptQuestResponse)
 	{
-		success = data["success"].GetBool();
+		Quest quest;
+		quest.id = data["questId"].GetString();
+		quest.name = data["questName"].GetString();
+		quest.description = data["description"].GetString();
+		quest.targetNPCId = data["targetNPCId"].GetInt();
+
+		if (data.HasMember("requiredCount"))
+			quest.requiredCount = data["requiredCount"].GetInt();
+		if (data.HasMember("type"))
+			quest.type = (QuestType)data["type"].GetInt();
+		if (data.HasMember("rewards"))
+		{
+			const auto& rewards = data["rewards"];
+			if (rewards.HasMember("exp"))
+				quest.rewards["exp"] = rewards["exp"].GetInt();
+			if (rewards.HasMember("gold"))
+				quest.rewards["gold"] = rewards["gold"].GetInt();
+		}
+
+		_onAcceptQuestResponse(success, quest);
 	}
-
-	if (data.HasMember("questId") && data["questId"].IsString())
+	else if (_onAcceptQuestResponse)
 	{
-		questId = data["questId"].GetString();
-	}
-
-	if (_onAcceptQuestResponse)
-	{
-		_onAcceptQuestResponse(success, questId);
+		Quest emptyQuest;
+		_onAcceptQuestResponse(success, emptyQuest);
 	}
 }
 void WebSocketClient::handleLoginResponse(const rapidjson::Value& data)
@@ -334,14 +348,11 @@ void WebSocketClient::handleLoginResponse(const rapidjson::Value& data)
 		resp->x = data["x"].GetFloat();
 		resp->y = data["y"].GetFloat();
 		resp->direction = data["direction"].GetFloat();
-
 		_playerId = resp->playerId;
-		CCLOG(u8"==[WebSocketClient::handleLoginResponse]登录成功回到即将回调函数, playerId=%d, name=%s", resp->playerId, resp->playerName.c_str());
 	}
 	else
 	{
 		resp->message = data["message"].GetString();
-		CCLOG("==[WebSocketClient::handleLoginResponse]Login failed: %s", resp->message.c_str());
 	}
 
 	if (_onLoginResponse) _onLoginResponse(resp);

@@ -359,9 +359,10 @@ public class GameHandler extends SimpleChannelInboundHandler<WebSocketFrame> {
 
         logger.info("玩家 {} 与 NPC {} 对话", player.getName(), npc.getName());
 
-        // 1. 检查是否有可完成的任务
+        // 1. 检查玩家进行的任务中是否有可完成的任务
         boolean questCompleted = false;
         for (PlayerQuest quest : QuestManager.getInstance().getPlayerQuests(playerId).values()) {
+            // TODO: 需要完善可完成任务
             if (quest.getStatus() == QuestStatus.IN_PROGRESS
                     && quest.getType() == QuestType.TALK
                     && quest.getTargetNPCId() == npcId) {

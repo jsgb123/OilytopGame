@@ -58,7 +58,6 @@ private:
 	long _maxExp;
 	int _hp;
 	int _maxHp;
-	//cocos2d::Node* _sprite;    // 关联的精灵节点
 	cocos2d::Action* _currentMoveAction;
 	cocos2d::Vec2 _pupilOffset = cocos2d::Vec2(0, 0); // 瞳孔偏移量
 	cocos2d::Vec2 _targetPupilOffset;
